@@ -3098,19 +3098,20 @@ var qrcode = function() {
     .card{padding:14px 14px;margin-bottom:12px;}
     .card h3{font-size:14px;}
     .grid{gap:10px;}
-    /* Bottom-Tab-Leiste statt seitlicher Navigation */
+    /* Bottom-Tab-Leiste statt seitlicher Navigation — alle 6 Reiter gleichmässig verteilt, ohne Wischen */
     .swatch-nav{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;height:auto;
-      flex-direction:row;align-items:stretch;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;
-      padding:4px 4px calc(4px + env(safe-area-inset-bottom, 0px)) 4px;gap:2px;border-right:none;
+      flex-direction:row;align-items:stretch;justify-content:space-between;overflow:visible;
+      padding:4px 2px calc(4px + env(safe-area-inset-bottom, 0px)) 2px;gap:0;border-right:none;
       border-top:1px solid var(--line);z-index:60;background:var(--surface);
-      box-shadow:0 -3px 14px rgba(0,0,0,.08);-webkit-overflow-scrolling:touch;}
+      box-shadow:0 -3px 14px rgba(0,0,0,.08);}
     .swatch-nav .brand{display:none;}
     .swatch-nav .nav-spacer{display:none;}
     .swatch-nav .nav-lang{display:none;}
     .swatch-nav .nav-sync{display:none;}
-    .nav-item{flex-direction:column;gap:3px;padding:7px 10px;min-width:64px;font-size:10px;
-      text-align:center;white-space:nowrap;border-radius:10px;flex-shrink:0;justify-content:center;}
-    .nav-item .swatch{width:22px;height:14px;margin:0 auto;}
+    .nav-item{flex:1 1 0;width:auto;min-width:0;max-width:none;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:3px;padding:6px 2px;font-size:9.3px;line-height:1.12;
+      text-align:center;white-space:normal;word-break:break-word;border-radius:10px;}
+    .nav-item .swatch{width:20px;height:13px;margin:0 auto;}
     /* Touch-Ziele & Zoom-Verhinderung auf iOS (Inputs unter 16px zoomen sonst automatisch rein) */
     .btn{min-height:42px;padding:9px 16px;font-size:14px;}
     .btn-sm{min-height:36px;padding:7px 12px;}
