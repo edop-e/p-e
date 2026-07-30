@@ -3962,7 +3962,8 @@ const I18N = {
     voice_multi_start: "Mehrere Positionen diktieren",
     voice_multi_stop: "Diktat beenden",
     voice_multi_recording: "Position {n} wird gerade erfasst…",
-    voice_multi_hint: "Beschreibe pro Raum/Fläche: Ort, Fläche in m² und Bereich (innen/aussen). Sag danach deutlich \"Nächste Position\", um automatisch eine neue Position zu beginnen — ohne dieses Wort bleibt alles in der aktuellen Position."
+    voice_multi_ready: "Position gespeichert. Bereit für die nächste — einfach wieder auf \"Diktieren\" drücken.",
+    voice_multi_hint: "Diktieren drücken, eine Position beschreiben (Ort, Fläche in m², Bereich innen/aussen), dann Stopp drücken — die nächste Position wird automatisch angelegt, ganz ohne Extra-Klick. Wer lieber durchgehend redet, kann statt zu stoppen auch \"Nächste Position\" sagen."
   },
   fr: {
     nav_dashboard: "Aperçu",
@@ -4355,7 +4356,8 @@ const I18N = {
     voice_multi_start: "Dicter plusieurs positions",
     voice_multi_stop: "Terminer la dictée",
     voice_multi_recording: "La position {n} est en cours de saisie…",
-    voice_multi_hint: "Décrivez chaque pièce/surface : lieu, surface en m² et zone (intérieur/extérieur). Dites ensuite clairement « position suivante » pour commencer automatiquement une nouvelle position — sans ce mot, tout reste dans la position actuelle."
+    voice_multi_ready: "Position enregistrée. Prêt pour la suivante — appuyez à nouveau sur « Dicter ».",
+    voice_multi_hint: "Appuyez sur Dicter, décrivez une position (lieu, surface en m², zone intérieur/extérieur), puis appuyez sur Stop — la position suivante est créée automatiquement, sans clic supplémentaire. Pour parler en continu, vous pouvez aussi dire « position suivante » au lieu de vous arrêter."
   }
 };
 function t(lang, key, vars) {
@@ -4572,15 +4574,18 @@ function MultiPositionVoiceAssistant({
   onListeningChange
 }) {
   const [listening, setListening] = useState(false);
+  const [justPreparedNext, setJustPreparedNext] = useState(false);
   const [supported] = useState(!!getSpeechRecognitionCtor());
   const recognitionRef = useRef(null);
   const listeningRef = useRef(false);
   const currentPosIdRef = useRef(null);
   const currentBaseRef = useRef("");
   const currentCommittedRef = useRef("");
+  const preparedHintTimeoutRef = useRef(null);
   useEffect(() => {
     return () => {
       listeningRef.current = false;
+      window.clearTimeout(preparedHintTimeoutRef.current);
       if (recognitionRef.current) {
         try {
           recognitionRef.current.onend = null;
@@ -4643,17 +4648,25 @@ function MultiPositionVoiceAssistant({
   function startListening() {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) return;
-    let startPos = offer.positions[offer.positions.length - 1];
-    if (!startPos) {
-      const p = newOfferPosition();
-      patchDb(next => {
-        const o = next.offers.find(o => o.id === offer.id);
-        if (o) o.positions.push(structuredClone(p));
-      });
-      startPos = p;
+    if (!currentPosIdRef.current) {
+      // Allererster Start dieser Sitzung: letzte vorhandene Position übernehmen
+      // oder, falls die Offerte noch leer ist, eine neue anlegen.
+      let startPos = offer.positions[offer.positions.length - 1];
+      if (!startPos) {
+        const p = newOfferPosition();
+        patchDb(next => {
+          const o = next.offers.find(o => o.id === offer.id);
+          if (o) o.positions.push(structuredClone(p));
+        });
+        startPos = p;
+      }
+      currentPosIdRef.current = startPos.id;
+      currentBaseRef.current = (startPos.description || "").trim();
+    } else {
+      // Fortsetzung: die beim letzten Stopp automatisch bereits angelegte,
+      // leere Position wird jetzt weiterbefüllt - keine manuelle Aktion nötig.
+      currentBaseRef.current = "";
     }
-    currentPosIdRef.current = startPos.id;
-    currentBaseRef.current = (startPos.description || "").trim();
     currentCommittedRef.current = "";
     const recognition = new Ctor();
     recognition.lang = speechLangCode(lang);
@@ -4709,6 +4722,16 @@ function MultiPositionVoiceAssistant({
         recognitionRef.current.stop();
       } catch (e) {}
     }
+    // Direkt nach dem manuellen Stopp automatisch die nächste Position anlegen -
+    // kein Sprachkommando und kein manueller Klick auf "+ Weitere Position" nötig.
+    // Nur wenn tatsächlich etwas diktiert wurde (sonst bleibt die leere Position einfach bestehen).
+    const fullCurrentText = [currentBaseRef.current, currentCommittedRef.current].filter(Boolean).join(" ").trim();
+    if (fullCurrentText) {
+      startNewPosition();
+      setJustPreparedNext(true);
+      window.clearTimeout(preparedHintTimeoutRef.current);
+      preparedHintTimeoutRef.current = window.setTimeout(() => setJustPreparedNext(false), 4000);
+    }
   }
   function toggle() {
     if (listening) stopListening();else startListening();
@@ -4737,7 +4760,13 @@ function MultiPositionVoiceAssistant({
     className: "voice-listening-dot"
   }), t(lang, "voice_multi_recording", {
     n: activePosNumber
-  }))), /*#__PURE__*/React.createElement("p", {
+  })), !listening && justPreparedNext && /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "var(--accent)",
+      fontWeight: 600,
+      fontSize: 12.5
+    }
+  }, "\u2713 " + t(lang, "voice_multi_ready"))), /*#__PURE__*/React.createElement("p", {
     className: "subtle",
     style: {
       marginTop: 8,
