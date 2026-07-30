@@ -3957,7 +3957,12 @@ const I18N = {
     voice_unsupported: "Spracherkennung wird von diesem Browser nicht unterstützt. Am besten Chrome auf Android verwenden.",
     voice_permission_denied: "Mikrofonzugriff wurde nicht erlaubt. Bitte in den Handy-/Browser-Einstellungen aktivieren.",
     voice_hint_desc: "Beschreibung, Fläche (z.B. \"45 Quadratmeter\") und Bereich (innen/aussen) reindiktieren.",
-    voice_hint_simple: "Antippen und reinsprechen."
+    voice_hint_simple: "Antippen und reinsprechen.",
+    voice_disabled_hint: "Gerade nicht verfügbar (Mehrfach-Diktat läuft).",
+    voice_multi_start: "Mehrere Positionen diktieren",
+    voice_multi_stop: "Diktat beenden",
+    voice_multi_recording: "Position {n} wird gerade erfasst…",
+    voice_multi_hint: "Beschreibe pro Raum/Fläche: Ort, Fläche in m² und Bereich (innen/aussen). Sag danach deutlich \"Nächste Position\", um automatisch eine neue Position zu beginnen — ohne dieses Wort bleibt alles in der aktuellen Position."
   },
   fr: {
     nav_dashboard: "Aperçu",
@@ -4345,7 +4350,12 @@ const I18N = {
     voice_unsupported: "La reconnaissance vocale n'est pas prise en charge par ce navigateur. Utilisez de préférence Chrome sur Android.",
     voice_permission_denied: "L'accès au microphone n'a pas été autorisé. Veuillez l'activer dans les paramètres du téléphone/navigateur.",
     voice_hint_desc: "Dictez la description, la surface (p.ex. \"45 mètres carrés\") et la zone (intérieur/extérieur).",
-    voice_hint_simple: "Appuyez et parlez."
+    voice_hint_simple: "Appuyez et parlez.",
+    voice_disabled_hint: "Actuellement indisponible (dictée multiple en cours).",
+    voice_multi_start: "Dicter plusieurs positions",
+    voice_multi_stop: "Terminer la dictée",
+    voice_multi_recording: "La position {n} est en cours de saisie…",
+    voice_multi_hint: "Décrivez chaque pièce/surface : lieu, surface en m² et zone (intérieur/extérieur). Dites ensuite clairement « position suivante » pour commencer automatiquement une nouvelle position — sans ce mot, tout reste dans la position actuelle."
   }
 };
 function t(lang, key, vars) {
@@ -4420,7 +4430,8 @@ function VoiceDictationButton({
   baseText,
   onLiveText,
   onFinalUpdate,
-  title
+  title,
+  disabled
 }) {
   const [listening, setListening] = useState(false);
   const [supported] = useState(!!getSpeechRecognitionCtor());
@@ -4440,6 +4451,11 @@ function VoiceDictationButton({
       }
     };
   }, []);
+  useEffect(() => {
+    if (disabled && listeningRef.current) {
+      stopListening();
+    }
+  }, [disabled]);
   function startListening() {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) return;
@@ -4518,9 +4534,216 @@ function VoiceDictationButton({
     type: "button",
     className: "voice-btn" + (listening ? " voice-btn-active" : ""),
     onClick: toggle,
-    title: title || (listening ? t(lang, "voice_stop") : t(lang, "voice_start")),
+    disabled: !!disabled,
+    title: disabled ? t(lang, "voice_disabled_hint") : title || (listening ? t(lang, "voice_stop") : t(lang, "voice_start")),
     "aria-label": title || t(lang, "voice_start")
   }, listening ? "\u23F9" : "\uD83C\uDFA4");
+}
+function findTriggerMatch(text, lang) {
+  const t = text || "";
+  const triggersDe = [/n[äa]chste\s+position/i, /neue\s+position/i, /n[äa]chster\s+punkt/i, /position\s+fertig/i, /position\s+abgeschlossen/i];
+  const triggersFr = [/position\s+suivante/i, /nouvelle\s+position/i, /prochaine\s+position/i];
+  const triggers = lang === "fr" ? triggersFr : triggersDe;
+  let best = null;
+  triggers.forEach(re => {
+    const m = re.exec(t);
+    if (m && (best === null || m.index < best.index)) {
+      best = {
+        index: m.index,
+        length: m[0].length
+      };
+    }
+  });
+  return best;
+}
+
+// Diktier-Modus für die GANZE Offerte: der Handwerker läuft durchs Objekt und
+// beschreibt Raum für Raum am Stück. Sobald das Signalwort "Nächste Position"
+// (bzw. "Position suivante" auf Französisch) erkannt wird, schliesst das Tool
+// die aktuelle Position ab und legt automatisch eine neue an, in die ab sofort
+// weiterdiktiert wird. Ohne dieses Signalwort kann eine reine Texterkennung
+// (ohne Sprachverständnis-KI im Hintergrund) nicht zuverlässig selbst
+// entscheiden, wo eine Position endet und die nächste beginnt.
+function MultiPositionVoiceAssistant({
+  offer,
+  db,
+  patchDb,
+  lang,
+  onListeningChange
+}) {
+  const [listening, setListening] = useState(false);
+  const [supported] = useState(!!getSpeechRecognitionCtor());
+  const recognitionRef = useRef(null);
+  const listeningRef = useRef(false);
+  const currentPosIdRef = useRef(null);
+  const currentBaseRef = useRef("");
+  const currentCommittedRef = useRef("");
+  useEffect(() => {
+    return () => {
+      listeningRef.current = false;
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.onend = null;
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
+    };
+  }, []);
+  function applyToPosition(posId, fullText) {
+    patchDb(next => {
+      const o = next.offers.find(o => o.id === offer.id);
+      if (!o) return;
+      const pos = o.positions.find(p => p.id === posId);
+      if (!pos) return;
+      pos.description = fullText;
+      if (pos.serviceId) {
+        const svc = db.services.find(s => s.id === pos.serviceId);
+        if (svc) {
+          const qty = extractQuantityForUnit(fullText, svc.unit, lang);
+          if (qty != null) pos.serviceQty = String(qty);
+        }
+      } else {
+        const qty = extractQuantityForUnit(fullText, "m2", lang);
+        if (qty != null) pos.m2 = String(qty);
+        const bereich = extractBereichFromSpeech(fullText, lang);
+        if (bereich) pos.bereich = bereich;
+      }
+    });
+  }
+  function startNewPosition() {
+    const posObj = newOfferPosition();
+    patchDb(next => {
+      const o = next.offers.find(o => o.id === offer.id);
+      if (o) o.positions.push(structuredClone(posObj));
+    });
+    currentPosIdRef.current = posObj.id;
+    currentBaseRef.current = "";
+    currentCommittedRef.current = "";
+  }
+  function processFinalText(rawFinalText) {
+    let remaining = rawFinalText;
+    for (let guard = 0; guard < 20; guard++) {
+      const match = findTriggerMatch(remaining, lang);
+      if (!match) break;
+      const before = remaining.slice(0, match.index).trim();
+      if (before) {
+        currentCommittedRef.current = [currentCommittedRef.current, before].filter(Boolean).join(" ").trim();
+      }
+      const fullCurrentText = [currentBaseRef.current, currentCommittedRef.current].filter(Boolean).join(" ").trim();
+      if (fullCurrentText) applyToPosition(currentPosIdRef.current, fullCurrentText);
+      startNewPosition();
+      remaining = remaining.slice(match.index + match.length).trim();
+    }
+    if (remaining) {
+      currentCommittedRef.current = [currentCommittedRef.current, remaining].filter(Boolean).join(" ").trim();
+    }
+    const fullCurrentText = [currentBaseRef.current, currentCommittedRef.current].filter(Boolean).join(" ").trim();
+    if (fullCurrentText) applyToPosition(currentPosIdRef.current, fullCurrentText);
+  }
+  function startListening() {
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) return;
+    let startPos = offer.positions[offer.positions.length - 1];
+    if (!startPos) {
+      const p = newOfferPosition();
+      patchDb(next => {
+        const o = next.offers.find(o => o.id === offer.id);
+        if (o) o.positions.push(structuredClone(p));
+      });
+      startPos = p;
+    }
+    currentPosIdRef.current = startPos.id;
+    currentBaseRef.current = (startPos.description || "").trim();
+    currentCommittedRef.current = "";
+    const recognition = new Ctor();
+    recognition.lang = speechLangCode(lang);
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.onresult = event => {
+      let finalText = "";
+      let hasNewFinal = false;
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalText += (finalText ? " " : "") + event.results[i][0].transcript.trim();
+          hasNewFinal = true;
+        }
+      }
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        if (!event.results[i].isFinal) interimText += event.results[i][0].transcript;
+      }
+      if (hasNewFinal) processFinalText(finalText);
+      const liveText = [currentBaseRef.current, currentCommittedRef.current, interimText.trim()].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+      if (liveText) applyToPosition(currentPosIdRef.current, liveText);
+    };
+    recognition.onerror = event => {
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        listeningRef.current = false;
+        setListening(false);
+        if (onListeningChange) onListeningChange(false);
+        window.alert(t(lang, "voice_permission_denied"));
+      }
+    };
+    recognition.onend = () => {
+      if (listeningRef.current) {
+        try {
+          recognition.start();
+        } catch (e) {}
+      }
+    };
+    recognitionRef.current = recognition;
+    listeningRef.current = true;
+    setListening(true);
+    if (onListeningChange) onListeningChange(true);
+    try {
+      recognition.start();
+    } catch (e) {}
+  }
+  function stopListening() {
+    listeningRef.current = false;
+    setListening(false);
+    if (onListeningChange) onListeningChange(false);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+  }
+  function toggle() {
+    if (listening) stopListening();else startListening();
+  }
+  const activePosNumber = listening ? offer.positions.findIndex(p => p.id === currentPosIdRef.current) + 1 : 0;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      borderColor: listening ? "var(--danger)" : "var(--line)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn " + (listening ? "btn-danger" : "btn-primary"),
+    disabled: !supported,
+    onClick: toggle
+  }, listening ? "\u23F9 " + t(lang, "voice_multi_stop") : "\uD83C\uDFA4 " + t(lang, "voice_multi_start")), listening && activePosNumber > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "voice-listening-hint"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "voice-listening-dot"
+  }), t(lang, "voice_multi_recording", {
+    n: activePosNumber
+  }))), /*#__PURE__*/React.createElement("p", {
+    className: "subtle",
+    style: {
+      marginTop: 8,
+      marginBottom: 0
+    }
+  }, supported ? t(lang, "voice_multi_hint") : t(lang, "voice_unsupported")));
 }
 function App() {
   const [db, setDb] = useState(loadDb);
@@ -7269,6 +7492,7 @@ function OfferDetail({
   patchDb,
   lang
 }) {
+  const [globalVoiceListening, setGlobalVoiceListening] = useState(false);
   function update(fn) {
     patchDb(next => {
       const o = next.offers.find(o => o.id === offer.id);
@@ -7352,6 +7576,7 @@ function OfferDetail({
   }), /*#__PURE__*/React.createElement(VoiceDictationButton, {
     lang: lang,
     baseText: offer.customer,
+    disabled: globalVoiceListening,
     onLiveText: text => update(o => {
       o.customer = text;
     })
@@ -7368,6 +7593,7 @@ function OfferDetail({
   }), /*#__PURE__*/React.createElement(VoiceDictationButton, {
     lang: lang,
     baseText: offer.address,
+    disabled: globalVoiceListening,
     onLiveText: text => update(o => {
       o.address = text;
     })
@@ -7384,7 +7610,13 @@ function OfferDetail({
     value: "bestätigt"
   }, t(lang, "off_status_bestaetigt")), /*#__PURE__*/React.createElement("option", {
     value: "abgelehnt"
-  }, t(lang, "off_status_abgelehnt")))))), calc.positionResults.map(({
+  }, t(lang, "off_status_abgelehnt")))))), /*#__PURE__*/React.createElement(MultiPositionVoiceAssistant, {
+    offer: offer,
+    db: db,
+    patchDb: patchDb,
+    lang: lang,
+    onListeningChange: setGlobalVoiceListening
+  }), calc.positionResults.map(({
     pos,
     m2,
     priceCalc,
@@ -7442,6 +7674,7 @@ function OfferDetail({
     }), /*#__PURE__*/React.createElement(VoiceDictationButton, {
       lang: lang,
       baseText: pos.description,
+      disabled: globalVoiceListening,
       onLiveText: text => updatePosition(pos.id, {
         description: text
       }),
