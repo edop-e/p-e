@@ -4559,6 +4559,172 @@ function findTriggerMatch(text, lang) {
   return best;
 }
 
+/* ============================================================
+   INTELLIGENTES SPRACH-PARSING: erkennt Raum-Nennungen ("Zimmer 05") und
+   mehrere Arbeits-Elemente pro Satz ("Decke von 40m2 und eine Wand von 50m2")
+   und teilt sie automatisch auf einzelne, korrekt zugeordnete Positionen auf -
+   inkl. automatischer Zuordnung zur passenden Leistung aus dem Katalog.
+   Komplett lokal/regelbasiert (keine KI/Server nötig), daher kostenlos und
+   auch offline nutzbar.
+   ============================================================ */
+
+const ROOM_WORDS_DE = ["zimmer","raum","büro","buero","küche","kueche","badezimmer","bad","wc","toilette","gang","korridor","flur","keller","dachboden","estrich","garage","wohnzimmer","schlafzimmer","esszimmer","balkon","terrasse","eingang","treppenhaus","empfang","sitzungszimmer","gästezimmer","gaestezimmer"];
+const ROOM_WORDS_FR = ["chambre","pièce","piece","bureau","cuisine","salle de bain","salle de bains","wc","toilette","couloir","cave","garage","salon","salle à manger","salle a manger","balcon","terrasse","entrée","entree","escalier","réception","reception","salle de réunion","salle de reunion"];
+
+const WORK_KEYWORDS_DE = [
+  { concept: "decke", words: ["decke","decken"] },
+  { concept: "wand", words: ["wände","waende","wand","mauern","mauer"] },
+  { concept: "boden", words: ["böden","boeden","fussboden","bodenbelag","boden"] },
+  { concept: "tuer", words: ["türen","tueren","tür","tuer"] },
+  { concept: "fenster", words: ["fenster"] },
+  { concept: "rahmen", words: ["türrahmen","tuerrahmen","rahmen"] },
+  { concept: "grundierung", words: ["grundierung","vorstrich","grundanstrich"] }
+];
+const WORK_KEYWORDS_FR = [
+  { concept: "decke", words: ["plafonds","plafond"] },
+  { concept: "wand", words: ["murs","mur"] },
+  { concept: "boden", words: ["sols","sol"] },
+  { concept: "tuer", words: ["portes","porte"] },
+  { concept: "fenster", words: ["fenêtres","fenetres","fenêtre","fenetre"] },
+  { concept: "grundierung", words: ["couche de fond","fond"] }
+];
+
+// Konzept -> Substrings, nach denen im (oft französischen, aus bexio importierten)
+// Leistungskatalog gesucht wird - so funktioniert die Zuordnung unabhängig davon,
+// in welcher Sprache diktiert wird bzw. der Katalog benannt ist.
+const CONCEPT_SERVICE_HINTS = {
+  decke: ["plafond","decke","ceiling"],
+  wand: ["mur","wand","wall"],
+  boden: ["sol","boden","floor"],
+  tuer: ["porte","tür","tuer","door"],
+  fenster: ["fenêtre","fenetre","fenster","window"],
+  rahmen: ["cadre","rahmen","frame"],
+  grundierung: ["fond","grundierung","primer"]
+};
+
+function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+// Findet alle Zahlen+Einheit-Nennungen im Text MIT Position (im Unterschied zu
+// extractQuantityForUnit, das nur die letzte Nennung liefert) - notwendig, um bei
+// mehreren Zahlen im selben Satz jede der richtigen Stelle zuzuordnen.
+function findAllQuantities(text, lang) {
+  const t = (text || "").toLowerCase().replace(/'/g, "");
+  const patternsDe = {
+    m2: /(\d+(?:[.,]\d+)?)\s*(?:m²|m2|qm|quadratmeter|quadrat\s*meter)/gi,
+    ml: /(\d+(?:[.,]\d+)?)\s*(?:ml\b|lfm|laufmeter|laufende(?:n)?\s*meter)/gi,
+    pce: /(\d+(?:[.,]\d+)?)\s*(?:stück|stk\.?|st\.)/gi,
+    h: /(\d+(?:[.,]\d+)?)\s*(?:stunden|stunde|std\.?|h\b)/gi
+  };
+  const patternsFr = {
+    m2: /(\d+(?:[.,]\d+)?)\s*(?:m²|m2|mètres?\s*carr[ée]s?|metres?\s*carr[ée]s?)/gi,
+    ml: /(\d+(?:[.,]\d+)?)\s*(?:ml\b|mètres?\s*lin[ée]aires?|metres?\s*lineaires?)/gi,
+    pce: /(\d+(?:[.,]\d+)?)\s*(?:pi[èe]ces?|pce\b)/gi,
+    h: /(\d+(?:[.,]\d+)?)\s*(?:heures?|h\b)/gi
+  };
+  const patterns = lang === "fr" ? patternsFr : patternsDe;
+  const out = [];
+  Object.keys(patterns).forEach(unit => {
+    const re = patterns[unit];
+    let m;
+    while ((m = re.exec(t)) !== null) {
+      out.push({ index: m.index, unit, value: parseFloat(m[1].replace(",", ".")) });
+    }
+  });
+  out.sort((a, b) => a.index - b.index);
+  return out;
+}
+
+// Findet Raum-Nennungen ("Zimmer 05", "Büro 3", "Küche") mit Position im Text.
+function findRoomMatches(text, lang) {
+  const words = lang === "fr" ? ROOM_WORDS_FR : ROOM_WORDS_DE;
+  const sorted = [...words].sort((a, b) => b.length - a.length);
+  const pattern = sorted.map(escapeRe).join("|");
+  const re = new RegExp("\\b(?:" + pattern + ")(?:\\s+(?:n[o°]?\\.?\\s*)?(\\d+[a-zA-Z]?))?", "gi");
+  const out = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    out.push({ index: m.index, label: m[0].trim().replace(/\s+/g, " ") });
+  }
+  return out;
+}
+
+// Findet Arbeits-Stichwörter ("Wand", "Decke", "Tür"...) mit Position und Konzept.
+function findWorkKeywordMatches(text, lang) {
+  const groups = lang === "fr" ? WORK_KEYWORDS_FR : WORK_KEYWORDS_DE;
+  const out = [];
+  groups.forEach(g => {
+    const sorted = [...g.words].sort((a, b) => b.length - a.length);
+    const pattern = sorted.map(escapeRe).join("|");
+    const re = new RegExp("\\b(?:" + pattern + ")\\b", "gi");
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      out.push({ index: m.index, concept: g.concept });
+    }
+  });
+  out.sort((a, b) => a.index - b.index);
+  return out;
+}
+
+// Sucht die am besten passende Leistung im Katalog für ein erkanntes Konzept
+// (z.B. "wand" -> "Peinture des murs"). Bei mehreren Treffern gewinnt der
+// kürzeste Name (die "einfachste" Variante, z.B. ohne "à l'essence"-Zusatz).
+function findServiceForConcept(concept, services) {
+  const hints = CONCEPT_SERVICE_HINTS[concept];
+  if (!hints || !services) return null;
+  const matches = services.filter(s => {
+    const n = (s.name || "").toLowerCase();
+    return hints.some(h => n.includes(h));
+  });
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => (a.name || "").length - (b.name || "").length);
+  return matches[0];
+}
+
+// Zerlegt einen diktierten Textabschnitt in einzelne Positions-Vorschläge:
+// - ein Raum-Wort eröffnet einen neuen Raum-Abschnitt
+// - innerhalb eines Raum-Abschnitts erzeugt JEDES Arbeits-Stichwort (Wand, Decke, ...)
+//   eine EIGENE Position mit der jeweils nächstgelegenen Zahl als Menge
+// Gibt null zurück, wenn gar kein Muster erkannt wurde (Aufrufer nutzt dann den
+// alten Freitext-Fallback).
+function parseSpeechSegment(text, lang, services) {
+  const roomMatches = findRoomMatches(text, lang);
+  const workMatches = findWorkKeywordMatches(text, lang);
+  if (roomMatches.length === 0 && workMatches.length === 0) return null;
+
+  const qtyMatches = findAllQuantities(text, lang);
+
+  let roomSegments;
+  if (roomMatches.length === 0) {
+    roomSegments = [{ label: null, start: 0, end: text.length }];
+  } else {
+    roomSegments = roomMatches.map((m, i) => ({
+      label: m.label,
+      start: i === 0 ? 0 : m.index,
+      end: i + 1 < roomMatches.length ? roomMatches[i + 1].index : text.length
+    }));
+  }
+
+  const results = [];
+  roomSegments.forEach(seg => {
+    const segText = text.slice(seg.start, seg.end);
+    const segWorkMatches = workMatches.filter(w => w.index >= seg.start && w.index < seg.end);
+    const segBereich = extractBereichFromSpeech(segText, lang);
+    if (segWorkMatches.length === 0) {
+      const qty = qtyMatches.find(q => q.unit === "m2" && q.index >= seg.start && q.index < seg.end);
+      results.push({ roomLabel: seg.label, concept: null, service: null, qty: qty ? qty.value : null, unit: "m2", bereich: segBereich, rawText: segText.trim() });
+      return;
+    }
+    segWorkMatches.forEach((w, wi) => {
+      const scopeEnd = wi + 1 < segWorkMatches.length ? segWorkMatches[wi + 1].index : seg.end;
+      const service = findServiceForConcept(w.concept, services);
+      const unit = service ? service.unit : "m2";
+      const qty = qtyMatches.find(q => q.unit === unit && q.index >= w.index && q.index < scopeEnd);
+      results.push({ roomLabel: seg.label, concept: w.concept, service, qty: qty ? qty.value : null, unit, bereich: segBereich, rawText: text.slice(seg.start, scopeEnd).trim() });
+    });
+  });
+  return results;
+}
+
 // Diktier-Modus für die GANZE Offerte: der Handwerker läuft durchs Objekt und
 // beschreibt Raum für Raum am Stück. Sobald das Signalwort "Nächste Position"
 // (bzw. "Position suivante" auf Französisch) erkannt wird, schliesst das Tool
@@ -4582,6 +4748,11 @@ function MultiPositionVoiceAssistant({
   const currentBaseRef = useRef("");
   const currentCommittedRef = useRef("");
   const preparedHintTimeoutRef = useRef(null);
+  // Kontext-Tracking für die intelligente Raum-/Positions-Erkennung:
+  const positionFilledRef = useRef(false); // wurde der aktuellen Position schon etwas zugewiesen?
+  const currentRoomLabelRef = useRef(null); // zuletzt erkannter Raum (bleibt über "nächste Position" hinweg erhalten)
+  const currentConceptRef = useRef(null); // Arbeits-Konzept (wand/decke/...) der aktuellen Position
+  const currentServiceRef = useRef(null); // dazu passende Leistung aus dem Katalog
   useEffect(() => {
     return () => {
       listeningRef.current = false;
@@ -4615,6 +4786,52 @@ function MultiPositionVoiceAssistant({
       }
     });
   }
+  // Wendet einen einzelnen, strukturiert erkannten Positions-Vorschlag (Raum + Arbeits-
+  // Element + Menge) auf die aktuelle Position an und baut die Beschreibung sauber aus
+  // Raum-Label + Leistungsname zusammen (statt rohen Text zu verketten).
+  function applyParsedSpec(spec) {
+    patchDb(next => {
+      const o = next.offers.find(o => o.id === offer.id);
+      if (!o) return;
+      const pos = o.positions.find(p => p.id === currentPosIdRef.current);
+      if (!pos) return;
+      const svc = currentServiceRef.current;
+      const label = [currentRoomLabelRef.current, svc ? svc.name : currentConceptRef.current || null].filter(Boolean).join(" – ");
+      pos.description = label || spec.rawText || pos.description;
+      if (svc) {
+        pos.serviceId = svc.id;
+        if (spec.qty != null) pos.serviceQty = String(spec.qty);
+      } else {
+        if (spec.qty != null && spec.unit === "m2") pos.m2 = String(spec.qty);
+        if (spec.bereich) pos.bereich = spec.bereich;
+      }
+    });
+    positionFilledRef.current = true;
+  }
+  // Entscheidet pro erkanntem Spec, ob die aktuell offene Position weiter ergänzt wird
+  // (z.B. wenn der Raum schon genannt wurde und jetzt erst das Arbeits-Element folgt)
+  // oder ob eine neue Position begonnen werden muss (neuer Raum, oder ein weiteres,
+  // eigenständiges Arbeits-Element im selben Raum).
+  function decideAndApply(spec) {
+    const effectiveRoomLabel = spec.roomLabel || currentRoomLabelRef.current;
+    let startFresh = false;
+    if (!positionFilledRef.current) {
+      startFresh = false;
+    } else if (spec.roomLabel && spec.roomLabel !== currentRoomLabelRef.current) {
+      startFresh = true;
+    } else if (spec.concept && currentConceptRef.current) {
+      startFresh = true;
+    } else {
+      startFresh = false;
+    }
+    if (startFresh) startNewPosition();
+    currentRoomLabelRef.current = effectiveRoomLabel;
+    if (spec.concept) {
+      currentConceptRef.current = spec.concept;
+      currentServiceRef.current = spec.service || null;
+    }
+    applyParsedSpec(spec);
+  }
   function startNewPosition() {
     const posObj = newOfferPosition();
     patchDb(next => {
@@ -4624,26 +4841,43 @@ function MultiPositionVoiceAssistant({
     currentPosIdRef.current = posObj.id;
     currentBaseRef.current = "";
     currentCommittedRef.current = "";
+    positionFilledRef.current = false;
+    currentConceptRef.current = null;
+    currentServiceRef.current = null;
+    // currentRoomLabelRef bleibt bewusst bestehen, damit z.B. "Nächste Position, Decke 40m2"
+    // ohne erneute Raum-Nennung noch dem gleichen, zuletzt genannten Raum zugeordnet wird.
   }
   function processFinalText(rawFinalText) {
+    // 1) Zuerst an expliziten Signalwörtern ("nächste Position" / "position suivante")
+    //    aufteilen - das bleibt als manuelle Override-Möglichkeit erhalten.
+    const forcedChunks = [];
     let remaining = rawFinalText;
     for (let guard = 0; guard < 20; guard++) {
       const match = findTriggerMatch(remaining, lang);
       if (!match) break;
-      const before = remaining.slice(0, match.index).trim();
-      if (before) {
-        currentCommittedRef.current = [currentCommittedRef.current, before].filter(Boolean).join(" ").trim();
-      }
-      const fullCurrentText = [currentBaseRef.current, currentCommittedRef.current].filter(Boolean).join(" ").trim();
-      if (fullCurrentText) applyToPosition(currentPosIdRef.current, fullCurrentText);
-      startNewPosition();
+      forcedChunks.push({ text: remaining.slice(0, match.index).trim(), forceNextAfter: true });
       remaining = remaining.slice(match.index + match.length).trim();
     }
-    if (remaining) {
-      currentCommittedRef.current = [currentCommittedRef.current, remaining].filter(Boolean).join(" ").trim();
-    }
-    const fullCurrentText = [currentBaseRef.current, currentCommittedRef.current].filter(Boolean).join(" ").trim();
-    if (fullCurrentText) applyToPosition(currentPosIdRef.current, fullCurrentText);
+    forcedChunks.push({ text: remaining, forceNextAfter: false });
+
+    forcedChunks.forEach(chunk => {
+      if (chunk.text) {
+        const parsed = parseSpeechSegment(chunk.text, lang, db.services);
+        if (!parsed) {
+          // Kein Raum-/Arbeits-Stichwort erkannt: wie bisher als freien Text behandeln
+          // (z.B. reine Korrekturen oder ganz freie Beschreibung ohne erkennbares Muster).
+          currentCommittedRef.current = [currentCommittedRef.current, chunk.text].filter(Boolean).join(" ").trim();
+          const fullText = [currentBaseRef.current, currentCommittedRef.current].filter(Boolean).join(" ").trim();
+          if (fullText) {
+            applyToPosition(currentPosIdRef.current, fullText);
+            positionFilledRef.current = true;
+          }
+        } else {
+          parsed.forEach(spec => decideAndApply(spec));
+        }
+      }
+      if (chunk.forceNextAfter) startNewPosition();
+    });
   }
   function startListening() {
     const Ctor = getSpeechRecognitionCtor();
@@ -4662,6 +4896,10 @@ function MultiPositionVoiceAssistant({
       }
       currentPosIdRef.current = startPos.id;
       currentBaseRef.current = (startPos.description || "").trim();
+      positionFilledRef.current = !!currentBaseRef.current;
+      currentRoomLabelRef.current = null;
+      currentConceptRef.current = null;
+      currentServiceRef.current = null;
     } else {
       // Fortsetzung: die beim letzten Stopp automatisch bereits angelegte,
       // leere Position wird jetzt weiterbefüllt - keine manuelle Aktion nötig.
