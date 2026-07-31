@@ -3039,7 +3039,7 @@ var qrcode = function() {
     --ink-soft:#68665d;
     --line:#e3e0d3;
     --line-strong:#d1cdba;
-    --accent:#1f6f5c;      /* Fensterläden-Grün */
+    --accent:#1d5c8a;      /* Werkzeug-Blau (Hauptfarbe) */
     --accent-ink:#ffffff;
     --accent-2:#2c5a7c;    /* Werkzeug-Blau */
     --accent-3:#c8963e;    /* Ocker - Auszeichnung */
@@ -3172,13 +3172,13 @@ var qrcode = function() {
     transition:border-color .15s, box-shadow .15s;
   }
   textarea{resize:vertical;min-height:60px;}
-  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,111,92,.14);}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,92,138,.14);}
   .field{margin-bottom:2px;}
 
   .btn{border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;
     transition:transform .1s, box-shadow .15s, background .15s;}
-  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 3px 10px -3px rgba(31,111,92,.55);}
-  .btn-primary:hover{background:#195c4d;transform:translateY(-1px);box-shadow:0 5px 14px -3px rgba(31,111,92,.6);}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 3px 10px -3px rgba(29,92,138,.55);}
+  .btn-primary:hover{background:#17496d;transform:translateY(-1px);box-shadow:0 5px 14px -3px rgba(29,92,138,.6);}
   .btn-secondary{background:#fff;border-color:var(--line-strong);color:var(--ink);}
   .btn-secondary:hover{background:var(--surface-2);}
   .btn-ghost{background:transparent;border-color:transparent;color:var(--ink-soft);}
@@ -5117,7 +5117,7 @@ function App() {
   }, {
     id: "auftraege",
     label: t(lang, "nav_auftraege"),
-    swatchColor: "#1f6f5c"
+    swatchColor: "#1d5c8a"
   }, {
     id: "archiv",
     label: t(lang, "nav_archiv"),
@@ -5196,7 +5196,7 @@ function App() {
       height: 8,
       borderRadius: "50%",
       flexShrink: 0,
-      background: syncStatus === "connected" ? "#1f6f5c" : syncStatus === "connecting" ? "#d6a419" : "#c7511f"
+      background: syncStatus === "connected" ? "#1d5c8a" : syncStatus === "connecting" ? "#d6a419" : "#c7511f"
     }
   }), syncStatus === "connected" && t(lang, "sync_connected"), syncStatus === "connecting" && t(lang, "sync_connecting"), syncStatus === "offline" && t(lang, "sync_offline"))), /*#__PURE__*/React.createElement("div", {
     className: "main"
@@ -6444,7 +6444,7 @@ function ProgressBar({
     style: {
       width: pct + "%",
       height: "100%",
-      background: danger ? "var(--danger)" : "#1f6f5c",
+      background: danger ? "var(--danger)" : "#1d5c8a",
       borderRadius: 20,
       transition: "width .2s"
     }
@@ -7665,8 +7665,8 @@ function PhotoAreaMarker({
       });
     }
     if (polygonPoints.length > 0) {
-      ctx.strokeStyle = "#1f6f5c";
-      ctx.fillStyle = "rgba(31,111,92,0.18)";
+      ctx.strokeStyle = "#1d5c8a";
+      ctx.fillStyle = "rgba(29,92,138,0.18)";
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       polygonPoints.forEach((p, i) => {
@@ -7675,7 +7675,7 @@ function PhotoAreaMarker({
       if (polygonPoints.length > 2) ctx.closePath();
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = "#1f6f5c";
+      ctx.fillStyle = "#1d5c8a";
       polygonPoints.forEach(p => {
         ctx.beginPath();
         ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
@@ -7703,7 +7703,7 @@ function PhotoAreaMarker({
       }
     });
     if (pendingPoint) {
-      ctx.fillStyle = mode === "oeffnung" ? "#b3261e" : mode === "calib" ? "#35577d" : "#1f6f5c";
+      ctx.fillStyle = mode === "oeffnung" ? "#b3261e" : mode === "calib" ? "#35577d" : "#1d5c8a";
       ctx.beginPath();
       ctx.arc(pendingPoint.x, pendingPoint.y, 5, 0, Math.PI * 2);
       ctx.fill();
@@ -7897,7 +7897,7 @@ function PhotoAreaMarker({
     className: "subtle",
     style: {
       marginTop: 4,
-      color: "#1f6f5c"
+      color: "#1d5c8a"
     }
   }, t(lang, "pm_calib_done")), openings.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -8627,7 +8627,7 @@ const PDF_MARGIN = 18;
 const PDF_PAGE_W = 210;
 const PDF_PAGE_H = 297;
 const PDF_RIGHT = PDF_PAGE_W - PDF_MARGIN;
-const PDF_ACCENT = [31, 111, 92];
+const PDF_ACCENT = [29, 92, 138];
 const PDF_INK = [34, 34, 30];
 const PDF_SOFT = [110, 108, 100];
 function drawPdfHeader(doc, db, docTitle, docNumber, docDate, lang) {
@@ -8695,9 +8695,12 @@ function drawPdfCustomerBlock(doc, y, offer, lang) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.setTextColor(PDF_INK[0], PDF_INK[1], PDF_INK[2]);
-  doc.text(offer.customer || "–", PDF_MARGIN, y + 6);
-  doc.text(offer.address || "–", 110, y + 6);
-  return y + 16;
+  const custLines = doc.splitTextToSize(offer.customer || "–", 85);
+  const addrLines = doc.splitTextToSize(offer.address || "–", PDF_RIGHT - 110);
+  doc.text(custLines, PDF_MARGIN, y + 6);
+  doc.text(addrLines, 110, y + 6);
+  const lineCount = Math.max(custLines.length, addrLines.length);
+  return y + 10 + lineCount * 4.5;
 }
 function drawPdfTableHeader(doc, y, lang) {
   doc.setFillColor(242, 241, 235);
@@ -8752,16 +8755,20 @@ function exportOfferPdf(offer, db, calc, lang) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(PDF_INK[0], PDF_INK[1], PDF_INK[2]);
-    doc.text(t(lang, "pdf_position", {
+    const posTitle = t(lang, "pdf_position", {
       n: posIndex + 1
-    }) + (pos.description ? ": " + pos.description : ""), PDF_MARGIN + 2, y);
+    }) + (pos.description ? ": " + pos.description : "");
+    const posTitleLines = doc.splitTextToSize(posTitle, PDF_RIGHT - (PDF_MARGIN + 2));
+    doc.text(posTitleLines, PDF_MARGIN + 2, y);
+    let titleBlockHeight = posTitleLines.length * 4.2;
     doc.setFont("helvetica", "normal");
     doc.setTextColor(PDF_SOFT[0], PDF_SOFT[1], PDF_SOFT[2]);
     doc.setFontSize(8.5);
     if (priceCalc.mode !== "service") {
-      doc.text(pos.bereich === "aussen" ? t(lang, "pdf_aussen") : t(lang, "pdf_innen"), PDF_MARGIN + 2, y + 4);
+      doc.text(pos.bereich === "aussen" ? t(lang, "pdf_aussen") : t(lang, "pdf_innen"), PDF_MARGIN + 2, y + titleBlockHeight);
+      titleBlockHeight += 4;
     }
-    y += 9;
+    y += titleBlockHeight + 5;
     let subIndex = 1;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
@@ -9031,7 +9038,7 @@ function exportInvoicePdf(invoice, offer, db, lang) {
   }
   if (invoice.paid) {
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(31, 111, 92);
+    doc.setTextColor(29, 92, 138);
     doc.text(t(lang, "pdf_inv_paid", {
       d: invoice.paidDate || ""
     }), PDF_MARGIN, y);
