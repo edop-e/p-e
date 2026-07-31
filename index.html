@@ -3903,6 +3903,12 @@ const I18N = {
     ad_hours_note: "Notiz",
     ad_hours_add: "+ Erfassen",
     ad_hours_empty: "Noch keine Stunden erfasst.",
+    ad_ext_hours_title: "Fremdpersonal / temporäre Mitarbeitende",
+    ad_ext_hours_note: "Stunden von externen Helfern oder temporären Mitarbeitenden mit eigenem Stundenlohn – wird zu den Eigenkosten dazugerechnet.",
+    ad_ext_worker_name: "Name",
+    ad_ext_worker_name_ph: "z.B. Peter Muster",
+    ad_ext_hourly_rate: "Preis pro Stunde ({cur})",
+    ad_ext_hours_empty: "Noch keine Stunden von Fremdpersonal erfasst.",
     ad_material_title: "Material verwendet",
     ad_material_pick: "Farbe / Zubehör",
     ad_material_qty: "Menge",
@@ -4302,6 +4308,12 @@ const I18N = {
     ad_hours_note: "Remarque",
     ad_hours_add: "+ Saisir",
     ad_hours_empty: "Aucune heure saisie pour l'instant.",
+    ad_ext_hours_title: "Personnel externe / temporaire",
+    ad_ext_hours_note: "Heures d'aides externes ou de personnel temporaire avec son propre taux horaire – s'ajoute aux coûts propres.",
+    ad_ext_worker_name: "Nom",
+    ad_ext_worker_name_ph: "p.ex. Pierre Dupont",
+    ad_ext_hourly_rate: "Prix par heure ({cur})",
+    ad_ext_hours_empty: "Aucune heure de personnel externe saisie pour l'instant.",
     ad_material_title: "Matériel utilisé",
     ad_material_pick: "Couleur / accessoire",
     ad_material_qty: "Quantité",
@@ -6392,15 +6404,25 @@ function projectHours(project) {
 function projectLaborCost(project, db) {
   return round2(projectHours(project) * db.settings.hourlyRate);
 }
+// Fremdpersonal/temporäre Mitarbeitende: jeder Eintrag hat seinen eigenen Stundenlohn
+// (im Unterschied zu den eigenen Stunden, die alle den globalen EK-Stundenansatz nutzen).
+function projectExternalHours(project) {
+  return (project.externalHourEntries || []).reduce((sum, h) => sum + (parseFloat(h.hours) || 0), 0);
+}
+function projectExternalLaborCost(project) {
+  return round2((project.externalHourEntries || []).reduce((sum, h) => sum + (parseFloat(h.hours) || 0) * (parseFloat(h.hourlyRate) || 0), 0));
+}
 function projectProfit(project, db) {
   const materialCost = projectMaterialCost(project, db);
   const laborCost = projectLaborCost(project, db);
-  const ownCost = round2(materialCost + laborCost);
+  const externalLaborCost = projectExternalLaborCost(project);
+  const ownCost = round2(materialCost + laborCost + externalLaborCost);
   const sellingPrice = parseFloat(project.sellingPrice) || 0;
   const profit = round2(sellingPrice - ownCost);
   return {
     materialCost,
     laborCost,
+    externalLaborCost,
     ownCost,
     sellingPrice,
     profit
@@ -6463,6 +6485,7 @@ function Auftraege({
         address: "",
         status: "aktiv",
         hourEntries: [],
+        externalHourEntries: [],
         materialUsage: [],
         sellingPrice: "",
         offerId: null
@@ -6564,7 +6587,7 @@ function Auftraege({
       className: "btn btn-ghost btn-sm",
       title: t(lang, "common_delete"),
       onClick: e => deleteProject(p.id, e)
-    }, "??"))), prio.total > 0 && /*#__PURE__*/React.createElement("div", {
+    }, "\uD83D\uDDD1"))), prio.total > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         marginTop: 7
       }
@@ -6646,6 +6669,13 @@ function AuftragDetail({
     hours: "",
     note: ""
   });
+  const [extHourForm, setExtHourForm] = useState({
+    workerName: "",
+    date: todayISO(),
+    hours: "",
+    hourlyRate: "",
+    note: ""
+  });
   const [matForm, setMatForm] = useState({
     materialId: "",
     qty: ""
@@ -6679,6 +6709,28 @@ function AuftragDetail({
   function removeHours(id) {
     update(p => {
       p.hourEntries = p.hourEntries.filter(h => h.id !== id);
+    });
+  }
+  function addExternalHours() {
+    if (!extHourForm.workerName || !extHourForm.hours) return;
+    update(p => {
+      if (!p.externalHourEntries) p.externalHourEntries = [];
+      p.externalHourEntries.push({
+        id: uid("eh"),
+        ...extHourForm
+      });
+    });
+    setExtHourForm({
+      workerName: extHourForm.workerName,
+      date: todayISO(),
+      hours: "",
+      hourlyRate: extHourForm.hourlyRate,
+      note: ""
+    });
+  }
+  function removeExternalHours(id) {
+    update(p => {
+      p.externalHourEntries = (p.externalHourEntries || []).filter(h => h.id !== id);
     });
   }
   function addMaterial() {
@@ -6908,6 +6960,85 @@ function AuftragDetail({
     className: "btn btn-ghost btn-sm",
     onClick: () => removeHours(h.id)
   }, t(lang, "common_remove"))))), /*#__PURE__*/React.createElement("div", {
+  className: "card"
+}, /*#__PURE__*/React.createElement("h3", null, t(lang, "ad_ext_hours_title")), /*#__PURE__*/React.createElement("p", {
+  className: "subtle",
+  style: {
+    marginTop: -8,
+    marginBottom: 10
+  }
+}, t(lang, "ad_ext_hours_note")), /*#__PURE__*/React.createElement("div", {
+  className: "grid grid-2"
+}, /*#__PURE__*/React.createElement("div", {
+  className: "field"
+}, /*#__PURE__*/React.createElement("label", null, t(lang, "ad_ext_worker_name")), /*#__PURE__*/React.createElement("input", {
+  type: "text",
+  value: extHourForm.workerName,
+  placeholder: t(lang, "ad_ext_worker_name_ph"),
+  onChange: e => setExtHourForm({
+    ...extHourForm,
+    workerName: e.target.value
+  })
+})), /*#__PURE__*/React.createElement("div", {
+  className: "field"
+}, /*#__PURE__*/React.createElement("label", null, t(lang, "ad_hours_date")), /*#__PURE__*/React.createElement("input", {
+  type: "date",
+  value: extHourForm.date,
+  onChange: e => setExtHourForm({
+    ...extHourForm,
+    date: e.target.value
+  })
+})), /*#__PURE__*/React.createElement("div", {
+  className: "field"
+}, /*#__PURE__*/React.createElement("label", null, t(lang, "ad_hours_hours")), /*#__PURE__*/React.createElement("input", {
+  type: "text",
+  inputMode: "decimal",
+  value: extHourForm.hours,
+  onChange: e => setExtHourForm({
+    ...extHourForm,
+    hours: e.target.value
+  })
+})), /*#__PURE__*/React.createElement("div", {
+  className: "field"
+}, /*#__PURE__*/React.createElement("label", null, t(lang, "ad_ext_hourly_rate", {
+  cur: db.settings.currency
+})), /*#__PURE__*/React.createElement("input", {
+  type: "text",
+  inputMode: "decimal",
+  value: extHourForm.hourlyRate,
+  onChange: e => setExtHourForm({
+    ...extHourForm,
+    hourlyRate: e.target.value
+  })
+})), /*#__PURE__*/React.createElement("div", {
+  className: "field",
+  style: {
+    gridColumn: "span 2"
+  }
+}, /*#__PURE__*/React.createElement("label", null, t(lang, "ad_hours_note")), /*#__PURE__*/React.createElement("input", {
+  type: "text",
+  value: extHourForm.note,
+  onChange: e => setExtHourForm({
+    ...extHourForm,
+    note: e.target.value
+  })
+}))), /*#__PURE__*/React.createElement("button", {
+  className: "btn btn-primary btn-sm",
+  style: {
+    marginTop: 8
+  },
+  onClick: addExternalHours
+}, t(lang, "ad_hours_add")), /*#__PURE__*/React.createElement("div", {
+  className: "divider"
+}), (project.externalHourEntries || []).length === 0 && /*#__PURE__*/React.createElement("div", {
+  className: "empty"
+}, t(lang, "ad_ext_hours_empty")), (project.externalHourEntries || []).map(h => /*#__PURE__*/React.createElement("div", {
+  className: "list-item",
+  key: h.id
+}, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", null, h.workerName), " · ", h.date, " · ", h.hours, " h × ", fmtMoney(parseFloat(h.hourlyRate) || 0, db.settings.currency), " = ", fmtMoney((parseFloat(h.hours) || 0) * (parseFloat(h.hourlyRate) || 0), db.settings.currency), h.note && " · " + h.note), /*#__PURE__*/React.createElement("button", {
+  className: "btn btn-ghost btn-sm",
+  onClick: () => removeExternalHours(h.id)
+}, t(lang, "common_remove"))))), /*#__PURE__*/React.createElement("div", {
     className: "card"
   }, /*#__PURE__*/React.createElement("h3", null, t(lang, "ad_material_title")), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-2"
@@ -7354,7 +7485,7 @@ function Offerten({
     className: "btn btn-ghost btn-sm",
     title: t(lang, "common_delete"),
     onClick: e => deleteOffer(o.id, e)
-  }, "??"))))), /*#__PURE__*/React.createElement("div", null, !selected && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDDD1"))))), /*#__PURE__*/React.createElement("div", null, !selected && /*#__PURE__*/React.createElement("div", {
     className: "card empty"
   }, t(lang, "off_pick")), selected && /*#__PURE__*/React.createElement(OfferDetail, {
     offer: selected,
@@ -8028,6 +8159,7 @@ function OfferDetail({
         address: o.address,
         status: "aktiv",
         hourEntries: [],
+        externalHourEntries: [],
         materialUsage: [],
         sellingPrice: String(calc.grandTotal),
         offerId: o.id
