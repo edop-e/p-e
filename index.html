@@ -3032,53 +3032,69 @@ var qrcode = function() {
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#f2f1eb;
+    --bg:#f6f5f0;
     --surface:#ffffff;
-    --ink:#22221e;
-    --ink-soft:#5c5b54;
-    --line:#e2e0d6;
+    --surface-2:#f2f0e9;
+    --ink:#1c1c1a;
+    --ink-soft:#68665d;
+    --line:#e3e0d3;
+    --line-strong:#d1cdba;
     --accent:#1f6f5c;      /* Fensterläden-Grün */
     --accent-ink:#ffffff;
-    --accent-2:#35577d;    /* Werkzeug-Blau */
+    --accent-2:#2c5a7c;    /* Werkzeug-Blau */
+    --accent-3:#c8963e;    /* Ocker - Auszeichnung */
     --warn:#c7511f;        /* Ziegel-Terracotta - nur für Warnung/Zuschlag */
-    --gold:#d6a419;        /* Pauschale/Hinweis */
+    --gold:#c8963e;        /* Pauschale/Hinweis */
     --danger:#b3261e;
-    --radius:10px;
+    --radius:11px;
+    --radius-lg:16px;
+    --shadow-sm:0 1px 2px rgba(20,20,18,.05), 0 1px 1px rgba(20,20,18,.03);
+    --shadow-md:0 8px 22px -8px rgba(20,20,18,.18), 0 2px 6px -2px rgba(20,20,18,.08);
+    --shadow-lift:0 12px 30px -10px rgba(20,20,18,.24);
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;}
-  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
-  .mono{font-family:'IBM Plex Mono',monospace;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.02em;font-weight:700;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
   button{font-family:inherit;cursor:pointer;}
   input,select,textarea{font-family:inherit;}
   ::-webkit-scrollbar{width:8px;height:8px;}
-  ::-webkit-scrollbar-thumb{background:#d3d1c4;border-radius:4px;}
+  ::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px;}
 
   .app-shell{display:flex;min-height:100vh;}
 
-  /* Fächer-Navigation im Farbkarten-Stil */
-  .swatch-nav{width:230px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--line);
-    padding:20px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh;overflow-y:auto;}
-  .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 18px 8px;}
-  .brand-chip{width:30px;height:30px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--accent-2));flex-shrink:0;}
-  .brand-title{font-weight:700;font-size:15px;line-height:1.15;}
-  .brand-sub{font-size:11px;color:var(--ink-soft);}
+  /* Fächer-Navigation im Farbkarten-Stil — jeder Eintrag ist eine kleine "Farbkarte" */
+  .swatch-nav{width:236px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--line);
+    padding:22px 14px;display:flex;flex-direction:column;gap:5px;position:sticky;top:0;height:100vh;overflow-y:auto;
+    box-shadow:1px 0 0 rgba(20,20,18,.02);}
+  .brand{display:flex;align-items:center;gap:11px;padding:2px 8px 20px 8px;}
+  .brand-chip{width:34px;height:34px;border-radius:9px;flex-shrink:0;position:relative;overflow:hidden;
+    background:linear-gradient(150deg,var(--accent-3) 0%, var(--accent) 48%, var(--accent-2) 100%);
+    box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.3);}
+  .brand-chip::after{content:"";position:absolute;top:0;left:0;right:0;height:38%;
+    background:linear-gradient(180deg, rgba(255,255,255,.4), rgba(255,255,255,0));}
+  .brand-title{font-weight:700;font-size:15.5px;line-height:1.15;}
+  .brand-sub{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em;font-weight:700;}
 
-  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:8px;border:none;background:transparent;
-    text-align:left;color:var(--ink);font-size:13.5px;font-weight:500;width:100%;position:relative;transition:background .15s;}
-  .nav-item:hover{background:#f3f2ec;}
-  .nav-item.active{background:var(--ink);color:#fff;}
-  .swatch{width:14px;height:22px;border-radius:3px;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);}
-  .nav-badge{margin-left:auto;font-size:10px;background:var(--line);color:var(--ink-soft);border-radius:10px;padding:1px 7px;}
-  .nav-item.active .nav-badge{background:rgba(255,255,255,.2);color:#fff;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:10px;border:none;background:transparent;
+    text-align:left;color:var(--ink);font-size:13.5px;font-weight:600;width:100%;position:relative;transition:background .15s,transform .1s;}
+  .nav-item:hover{background:var(--surface-2);}
+  .nav-item.active{background:var(--ink);color:#fff;box-shadow:var(--shadow-md);}
+  .swatch{width:16px;height:26px;border-radius:4px;flex-shrink:0;position:relative;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.10);}
+  .swatch::after{content:"";position:absolute;top:1.5px;left:1.5px;right:1.5px;height:34%;border-radius:2.5px 2.5px 0 0;
+    background:rgba(255,255,255,.38);}
+  .nav-badge{margin-left:auto;font-size:10px;background:var(--line);color:var(--ink-soft);border-radius:10px;padding:1px 7px;font-weight:700;}
+  .nav-item.active .nav-badge{background:rgba(255,255,255,.22);color:#fff;}
 
-  .main{flex:1;padding:28px 34px;max-width:1300px;}
-  .page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
-  .page-head h1{font-size:22px;margin:0 0 4px 0;}
-  .page-head p{margin:0;color:var(--ink-soft);font-size:13px;}
+  .main{flex:1;padding:30px 36px;max-width:1300px;}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+  .page-head h1{font-size:27px;margin:0 0 5px 0;font-weight:700;}
+  .page-head p{margin:0;color:var(--ink-soft);font-size:13.5px;max-width:600px;}
 
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;}
-  .card h3{margin:0 0 14px 0;font-size:14.5px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--accent);
+    border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:16px;box-shadow:var(--shadow-sm);}
+  .card h3{margin:0 0 14px 0;font-size:15px;font-weight:700;}
   .grid{display:grid;gap:14px;}
   .grid-2{grid-template-columns:1fr 1fr;}
   .grid-3{grid-template-columns:1fr 1fr 1fr;}
@@ -3093,9 +3109,9 @@ var qrcode = function() {
     .app-shell{flex-direction:column;}
     .main{padding:14px 12px calc(84px + env(safe-area-inset-bottom, 0px)) 12px;max-width:100%;}
     .page-head{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:16px;}
-    .page-head h1{font-size:19px;}
+    .page-head h1{font-size:20px;}
     .page-head > button, .page-head .btn{width:100%;justify-content:center;}
-    .card{padding:14px 14px;margin-bottom:12px;}
+    .card{padding:15px 15px;margin-bottom:12px;border-top-width:3px;}
     .card h3{font-size:14px;}
     .grid{gap:10px;}
     /* Bottom-Tab-Leiste statt seitlicher Navigation — alle 6 Reiter gleichmässig verteilt, ohne Wischen */
@@ -3133,9 +3149,9 @@ var qrcode = function() {
   /* ===================== Sprachassistent (Diktier-Buttons) ===================== */
   .field-with-voice{display:flex;align-items:center;gap:8px;}
   .field-with-voice input, .field-with-voice textarea{flex:1;min-width:0;}
-  .voice-btn{width:38px;height:38px;min-height:0;border-radius:50%;border:1px solid var(--line);
+  .voice-btn{width:38px;height:38px;min-height:0;border-radius:50%;border:1px solid var(--line-strong);
     background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:16px;
-    flex-shrink:0;padding:0;line-height:1;transition:background .15s,border-color .15s,transform .1s;}
+    flex-shrink:0;padding:0;line-height:1;transition:background .15s,border-color .15s,transform .1s;box-shadow:var(--shadow-sm);}
   .voice-btn:active{transform:scale(0.94);}
   .voice-btn:disabled{opacity:.4;cursor:not-allowed;}
   .voice-btn-active{background:var(--danger);border-color:var(--danger);color:#fff;
@@ -3146,66 +3162,72 @@ var qrcode = function() {
     100%{box-shadow:0 0 0 0 rgba(179,38,30,0);}
   }
   .voice-listening-hint{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--danger);
-    font-weight:600;margin-top:5px;}
+    font-weight:700;margin-top:5px;}
   .voice-listening-dot{width:7px;height:7px;border-radius:50%;background:var(--danger);flex-shrink:0;
     animation:voicePulse 1.3s infinite;}
 
-  label{display:block;font-size:11.5px;color:var(--ink-soft);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+  label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
   input[type=text],input[type=number],input[type=date],select,textarea{
-    width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;background:#fdfdfb;color:var(--ink);
+    width:100%;padding:9px 11px;border:1px solid var(--line-strong);border-radius:8px;font-size:13.5px;background:#fdfdfb;color:var(--ink);
+    transition:border-color .15s, box-shadow .15s;
   }
   textarea{resize:vertical;min-height:60px;}
-  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,111,92,.14);}
   .field{margin-bottom:2px;}
 
-  .btn{border-radius:7px;padding:8px 14px;font-size:13px;font-weight:600;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;}
-  .btn-primary{background:var(--accent);color:#fff;}
-  .btn-primary:hover{background:#175a4a;}
-  .btn-secondary{background:#fff;border-color:var(--line);color:var(--ink);}
-  .btn-secondary:hover{background:#f3f2ec;}
+  .btn{border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;
+    transition:transform .1s, box-shadow .15s, background .15s;}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 3px 10px -3px rgba(31,111,92,.55);}
+  .btn-primary:hover{background:#195c4d;transform:translateY(-1px);box-shadow:0 5px 14px -3px rgba(31,111,92,.6);}
+  .btn-secondary{background:#fff;border-color:var(--line-strong);color:var(--ink);}
+  .btn-secondary:hover{background:var(--surface-2);}
   .btn-ghost{background:transparent;border-color:transparent;color:var(--ink-soft);}
+  .btn-ghost:hover{background:var(--surface-2);}
   .btn-danger{background:#fff;border-color:#e9c9c5;color:var(--danger);}
-  .btn-sm{padding:5px 9px;font-size:12px;}
-  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-danger:hover{background:#fdf4f3;}
+  .btn:active{transform:translateY(0);}
+  .btn-sm{padding:6px 10px;font-size:12px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
-  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);border-bottom:1px solid var(--line);padding:6px 8px;font-weight:600;}
-  td{padding:8px 8px;border-bottom:1px solid #f0efe8;}
+  th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);border-bottom:1px solid var(--line);padding:7px 8px;font-weight:700;}
+  td{padding:9px 8px;border-bottom:1px solid var(--surface-2);}
   tr:last-child td{border-bottom:none;}
-  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
-  .tag-innen{background:#e7eef5;color:var(--accent-2);}
-  .tag-aussen{background:#e6f1ee;color:var(--accent);}
-  .tag-entwurf{background:#eee;color:#666;}
-  .tag-gesendet{background:#fdf1d9;color:#8a6510;}
-  .tag-bestaetigt{background:#e2f2ec;color:#186a4f;}
+  .tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;}
+  .tag-innen{background:#e5edf4;color:var(--accent-2);}
+  .tag-aussen{background:#e2f0ea;color:var(--accent);}
+  .tag-entwurf{background:var(--surface-2);color:#68665d;}
+  .tag-gesendet{background:#faf0d6;color:#8a6510;}
+  .tag-bestaetigt{background:#e0f1e8;color:#186a4f;}
   .tag-abgelehnt{background:#fbe4e1;color:var(--danger);}
-  .tag-aktiv{background:#e2f2ec;color:#186a4f;}
-  .tag-archiviert{background:#eee;color:#777;}
+  .tag-aktiv{background:#e0f1e8;color:#186a4f;}
+  .tag-archiviert{background:var(--surface-2);color:#7a776b;}
 
-  .kpi{display:flex;flex-direction:column;gap:3px;}
-  .kpi .val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;}
-  .kpi .lbl{font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .kpi{display:flex;flex-direction:column;gap:4px;}
+  .kpi .val{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:700;letter-spacing:-0.02em;}
+  .kpi .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
   .kpi.profit .val{color:var(--accent);}
   .kpi.cost .val{color:var(--warn);}
 
-  .empty{padding:30px 10px;text-align:center;color:var(--ink-soft);font-size:13px;border:1px dashed var(--line);border-radius:8px;}
+  .empty{padding:34px 10px;text-align:center;color:var(--ink-soft);font-size:13px;border:1.5px dashed var(--line-strong);border-radius:10px;}
   .row-actions{display:flex;gap:6px;}
   .divider{height:1px;background:var(--line);margin:14px 0;}
   .pill-select{display:flex;gap:6px;flex-wrap:wrap;}
-  .pill{padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;}
+  .pill{padding:7px 14px;border-radius:20px;border:1px solid var(--line-strong);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .pill:hover:not(.selected){border-color:var(--accent);color:var(--accent);}
   .pill.selected{background:var(--ink);color:#fff;border-color:var(--ink);}
-  .modal-bg{position:fixed;inset:0;background:rgba(20,20,18,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
-  .modal{background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;padding:22px 24px;}
+  .modal-bg{position:fixed;inset:0;background:rgba(20,20,18,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(1px);}
+  .modal{background:#fff;border-radius:14px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;padding:24px 26px;box-shadow:var(--shadow-lift);}
   .modal h3{margin-top:0;}
   .close-x{position:absolute;top:14px;right:16px;background:none;border:none;font-size:18px;color:var(--ink-soft);cursor:pointer;}
-  .stub-banner{background:#fdf1d9;border:1px solid #f0dba8;color:#7a5b0d;font-size:12px;padding:8px 12px;border-radius:7px;margin-bottom:14px;}
-  .list-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0efe8;}
+  .stub-banner{background:#faf0d6;border:1px solid #ecd8a3;color:#7a5b0d;font-size:12px;padding:9px 12px;border-radius:8px;margin-bottom:14px;}
+  .list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-2);}
   .list-item:last-child{border-bottom:none;}
-  .link-btn{background:none;border:none;color:var(--accent-2);font-weight:600;font-size:13px;padding:0;}
+  .link-btn{background:none;border:none;color:var(--accent-2);font-weight:700;font-size:13px;padding:0;}
   .subtle{color:var(--ink-soft);font-size:12px;}
   .print-only{display:none;}
-  .photo-frame{border:1px dashed var(--line);border-radius:8px;padding:10px;text-align:center;color:var(--ink-soft);font-size:12.5px;}
-  .photo-frame img{max-width:100%;border-radius:6px;display:block;margin-top:8px;}
+  .photo-frame{border:1.5px dashed var(--line-strong);border-radius:10px;padding:10px;text-align:center;color:var(--ink-soft);font-size:12.5px;}
+  .photo-frame img{max-width:100%;border-radius:8px;display:block;margin-top:8px;}
 </style>
 </head>
 <body>
@@ -3541,6 +3563,15 @@ function round2(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+// Parst eine Zahl aus einem Eingabefeld robust, egal ob mit Punkt oder Komma als
+// Dezimaltrennzeichen eingegeben (z.B. "0,5" oder "0.5") - wichtig, da deutsch-/
+// schweizerische Tastaturen/Locales oft ein Komma erzeugen, das parseFloat sonst
+// als Ende der Zahl interpretiert (parseFloat("0,5") === 0, nicht 0.5!).
+function parseDecimal(v) {
+  if (v == null) return NaN;
+  return parseFloat(String(v).trim().replace(",", "."));
+}
+
 // Verkaufspreis eines Artikels: nutzt den VK-Preis, fällt auf den EK-Preis zurück,
 // falls (noch) kein VK-Preis hinterlegt ist.
 function getMaterialVKPrice(material) {
@@ -3817,7 +3848,7 @@ const I18N = {
     pm_height: "Höhe (Meter, real gemessen)",
     pm_width_short: "Breite",
     pm_height_short: "Höhe",
-    pm_calib_corners_note: "Klicke die 4 Ecken eines bekannten Rechtecks im Foto an (z.B. ein Fenster, eine Tür oder eine Fliese), der Reihe nach im Kreis herum (z.B. oben-links ? oben-rechts ? unten-rechts ? unten-links). {n}/4 Punkte gesetzt. Trage rechts die reale Breite und Höhe dieses Rechtecks ein.",
+    pm_calib_corners_note: "Klicke die 4 Ecken eines bekannten Rechtecks im Foto an (z.B. ein Fenster, eine Tür oder eine Fliese) - die Reihenfolge spielt keine Rolle, das Tool erkennt die Ecken automatisch richtig. {n}/4 Punkte gesetzt. Trage rechts die reale Breite und Höhe dieses Rechtecks ein.",
     pm_calib_width: "Reale Breite (Meter)",
     pm_calib_height: "Reale Höhe (Meter)",
     pm_calib_label: "Referenz",
@@ -4211,7 +4242,7 @@ const I18N = {
     pm_height: "Hauteur (mètres, mesure réelle)",
     pm_width_short: "Largeur",
     pm_height_short: "Hauteur",
-    pm_calib_corners_note: "Cliquez les 4 coins d'un rectangle connu sur la photo (p.ex. une fenêtre, une porte ou un carrelage), dans l'ordre en tournant (p.ex. haut-gauche ? haut-droite ? bas-droite ? bas-gauche). {n}/4 points placés. Saisissez à droite la largeur et hauteur réelles de ce rectangle.",
+    pm_calib_corners_note: "Cliquez les 4 coins d'un rectangle connu sur la photo (p.ex. une fenêtre, une porte ou un carrelage) - l'ordre n'a pas d'importance, l'outil reconnaît les coins automatiquement. {n}/4 points placés. Saisissez à droite la largeur et hauteur réelles de ce rectangle.",
     pm_calib_width: "Largeur réelle (mètres)",
     pm_calib_height: "Hauteur réelle (mètres)",
     pm_calib_label: "Référence",
@@ -4796,7 +4827,7 @@ function MultiPositionVoiceAssistant({
       const pos = o.positions.find(p => p.id === currentPosIdRef.current);
       if (!pos) return;
       const svc = currentServiceRef.current;
-      const label = [currentRoomLabelRef.current, svc ? svc.name : currentConceptRef.current || null].filter(Boolean).join(" – ");
+      const label = [currentRoomLabelRef.current, svc ? serviceDisplayName(svc, lang) : currentConceptRef.current || null].filter(Boolean).join(" – ");
       pos.description = label || spec.rawText || pos.description;
       if (svc) {
         pos.serviceId = svc.id;
@@ -5330,6 +5361,41 @@ function serviceUnitLabel(unit, lang) {
   };
   return t(lang, map[unit] || "svc_unit_m2");
 }
+
+// Deutsche Übersetzungen für die aus der bexio-Preisliste importierten (französischen)
+// Standard-Leistungen. Nur für exakt diese vordefinierten Namen aktiv - eigene, selbst
+// benannte Leistungen des Nutzers werden nie automatisch "übersetzt", sondern bleiben
+// immer genau so angezeigt, wie sie eingegeben wurden.
+const SERVICE_NAME_DE = {
+  "Application couche de fond": "Grundierung auftragen",
+  "Application deux couches peinture marquage au sol": "Bodenmarkierung (2 Schichten) auftragen",
+  "Application de béton ciré": "Polierbeton auftragen",
+  "Création d'un faux-plafond suspendu": "Abgehängte Decke erstellen",
+  "Création de cloisons légères": "Leichtbauwand erstellen (beidseitig)",
+  "Crépissage 1mm": "Verputzen 1mm",
+  "Doublage en cloisons légères": "Vorsatzschale erstellen (einseitig)",
+  "Lissage du plafond": "Decke spachteln/glätten",
+  "Mise en place du chantier": "Baustelleneinrichtung",
+  "Peinture des cadres en blanc": "Rahmen weiss streichen",
+  "Peinture des murs": "Wände streichen",
+  "Peinture des murs à l'essence": "Wände streichen (Öl-/Isolierfarbe)",
+  "Peinture des plafonds": "Decken streichen",
+  "Peinture des plafonds à l'essence": "Decken streichen (Öl-/Isolierfarbe)",
+  "Peinture des portes et cadres en blanc": "Türen und Rahmen weiss streichen",
+  "Peinture des portes sans cadres en blanc": "Türen ohne Rahmen weiss streichen",
+  "Protection des sols": "Bodenschutz anbringen",
+  "Réfection du plafond de sdb": "Decke Badezimmer sanieren",
+  "Travaux de plâtrerie/peinture à l'heure": "Gips-/Malerarbeiten nach Stunden",
+  "Travaux de préparation à l'heure": "Vorbereitungsarbeiten nach Stunden"
+};
+
+// Zeigt den Leistungsnamen in der aktuell gewählten Sprache an (übersetzt die
+// vordefinierten Katalog-Einträge ins Deutsche, wenn "DE" gewählt ist).
+function serviceDisplayName(service, lang) {
+  if (!service) return "";
+  if (lang !== "fr" && SERVICE_NAME_DE[service.name]) return SERVICE_NAME_DE[service.name];
+  return service.name;
+}
 function LeistungenTab({
   db,
   patchDb,
@@ -5446,7 +5512,7 @@ function LeistungenTab({
     className: "empty"
   }, t(lang, "svc_empty")), /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, t(lang, "svc_name")), /*#__PURE__*/React.createElement("th", null, t(lang, "svc_unit")), /*#__PURE__*/React.createElement("th", null, t(lang, "svc_price")), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, db.services.map(s => /*#__PURE__*/React.createElement("tr", {
     key: s.id
-  }, /*#__PURE__*/React.createElement("td", null, s.name), /*#__PURE__*/React.createElement("td", null, serviceUnitLabel(s.unit, lang)), /*#__PURE__*/React.createElement("td", {
+  }, /*#__PURE__*/React.createElement("td", null, serviceDisplayName(s, lang)), /*#__PURE__*/React.createElement("td", null, serviceUnitLabel(s.unit, lang)), /*#__PURE__*/React.createElement("td", {
     className: "mono"
   }, s.pricePerUnit > 0 ? fmtMoney(s.pricePerUnit, db.settings.currency) + "/" + serviceUnitLabel(s.unit, lang) : /*#__PURE__*/React.createElement("span", {
     style: {
@@ -7286,6 +7352,20 @@ function applyHomography(H, p) {
     y: (H[3] * p.x + H[4] * p.y + H[5]) / w
   };
 }
+// Bringt 4 angeklickte Eckpunkte automatisch in die Reihenfolge oben-links, oben-rechts,
+// unten-rechts, unten-links - unabhängig davon, in welcher Reihenfolge tatsächlich geklickt
+// wurde. Dadurch verdreht sich die Entzerrung nicht mehr, wenn die Klick-Reihenfolge nicht
+// exakt eingehalten wird (häufige Fehlerquelle in der Praxis).
+function orderQuadCorners(pts) {
+  if (!pts || pts.length !== 4) return pts;
+  const s = pts.map(p => p.x + p.y);
+  const d = pts.map(p => p.y - p.x);
+  const tl = pts[s.indexOf(Math.min(...s))];
+  const br = pts[s.indexOf(Math.max(...s))];
+  const tr = pts[d.indexOf(Math.min(...d))];
+  const bl = pts[d.indexOf(Math.max(...d))];
+  return [tl, tr, br, bl];
+}
 function PhotoAreaMarker({
   pos,
   onUpdateMarking,
@@ -7314,10 +7394,11 @@ function PhotoAreaMarker({
   useEffect(() => {
     draw();
   }, [canvasH, calibCorners, polygonPoints, openings, pendingPoint, lang]);
-  const calibWidth = parseFloat(marking.calibWidth) || 0;
-  const calibHeight = parseFloat(marking.calibHeight) || 0;
+  const calibWidth = parseDecimal(marking.calibWidth) || 0;
+  const calibHeight = parseDecimal(marking.calibHeight) || 0;
   const calibReady = calibCorners.length === 4 && calibWidth > 0 && calibHeight > 0;
-  const homography = calibReady ? computeHomography(calibCorners, [{
+  const orderedCalibCorners = calibReady ? orderQuadCorners(calibCorners) : null;
+  const homography = calibReady ? computeHomography(orderedCalibCorners, [{
     x: 0,
     y: 0
   }, {
@@ -7340,8 +7421,9 @@ function PhotoAreaMarker({
       ctx.strokeStyle = "#35577d";
       ctx.fillStyle = "#35577d";
       ctx.lineWidth = 2.5;
+      const outline = calibCorners.length === 4 ? orderQuadCorners(calibCorners) : calibCorners;
       ctx.beginPath();
-      calibCorners.forEach((p, i) => {
+      outline.forEach((p, i) => {
         if (i === 0) ctx.moveTo(p.x, p.y);else ctx.lineTo(p.x, p.y);
       });
       if (calibCorners.length === 4) ctx.closePath();
@@ -7553,8 +7635,8 @@ function PhotoAreaMarker({
   }, /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", null, t(lang, "pm_calib_width")), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    step: "0.01",
+    type: "text",
+    inputMode: "decimal",
     value: marking.calibWidth,
     onChange: e => onUpdateMarking({
       ...marking,
@@ -7564,8 +7646,8 @@ function PhotoAreaMarker({
   })), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", null, t(lang, "pm_calib_height")), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    step: "0.01",
+    type: "text",
+    inputMode: "decimal",
     value: marking.calibHeight,
     onChange: e => onUpdateMarking({
       ...marking,
@@ -7674,7 +7756,7 @@ function calcOfferBreakdown(offer, db) {
     const service = pos.serviceId ? db.services.find(s => s.id === pos.serviceId) : null;
     let priceCalc, m2;
     if (service) {
-      const qty = parseFloat(pos.serviceQty) || 0;
+      const qty = parseDecimal(pos.serviceQty) || 0;
       const total = round2(qty * (service.pricePerUnit || 0));
       priceCalc = {
         mode: "service",
@@ -7684,7 +7766,7 @@ function calcOfferBreakdown(offer, db) {
       };
       m2 = service.unit === "m2" ? qty : 0;
     } else {
-      m2 = parseFloat(pos.m2) || 0;
+      m2 = parseDecimal(pos.m2) || 0;
       priceCalc = calcPositionPrice(m2, pos.bereich, db.settings);
     }
     totalM2 += m2;
@@ -7914,7 +7996,7 @@ function OfferDetail({
         const svc = val ? db.services.find(s => s.id === val) : null;
         updatePosition(pos.id, {
           serviceId: val,
-          description: pos.description || (svc ? svc.name : "")
+          description: pos.description || (svc ? serviceDisplayName(svc, lang) : "")
         });
       }
     }, /*#__PURE__*/React.createElement("option", {
@@ -7922,7 +8004,7 @@ function OfferDetail({
     }, t(lang, "offd_service_none")), db.services.map(s => /*#__PURE__*/React.createElement("option", {
       key: s.id,
       value: s.id
-    }, s.name, " (", serviceUnitLabel(s.unit, lang), " · ", fmtMoney(s.pricePerUnit, db.settings.currency), ")")))), /*#__PURE__*/React.createElement("div", {
+    }, serviceDisplayName(s, lang), " (", serviceUnitLabel(s.unit, lang), " · ", fmtMoney(s.pricePerUnit, db.settings.currency), ")")))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-3"
     }, /*#__PURE__*/React.createElement("div", {
       className: "field",
@@ -7980,8 +8062,8 @@ function OfferDetail({
     }, /*#__PURE__*/React.createElement("label", null, t(lang, "offd_qty", {
       unit: serviceUnitLabel(selectedService.unit, lang)
     })), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      step: "0.1",
+      type: "text",
+      inputMode: "decimal",
       value: pos.serviceQty,
       onChange: e => updatePosition(pos.id, {
         serviceQty: e.target.value
@@ -7998,8 +8080,8 @@ function OfferDetail({
     }, /*#__PURE__*/React.createElement("div", {
       className: "field"
     }, /*#__PURE__*/React.createElement("label", null, t(lang, "offd_area")), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      step: "0.1",
+      type: "text",
+      inputMode: "decimal",
       value: pos.m2,
       onChange: e => updatePosition(pos.id, {
         m2: e.target.value
